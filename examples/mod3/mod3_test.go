@@ -23,4 +23,20 @@ func TestModThreeKnownValues(t *testing.T) {
 	}
 }
 
+func TestBuildMachineSuccess(t *testing.T) {
+	m, err := Build()
+	if err != nil {
+		t.Fatalf("unexpected build error: %v", err)
+	}
+	if _, err := m.Eval([]rune("01")); err != nil {
+		t.Fatalf("unexpected eval error: %v", err)
+	}
+}
+
+func TestModThreeUnexpectedStateIsError(t *testing.T) {
+    if _, err := ModThree("1010"); err != nil {
+        t.Fatalf("unexpected error for valid input: %v", err)
+    }
+}
+
 
