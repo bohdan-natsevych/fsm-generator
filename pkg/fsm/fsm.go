@@ -4,7 +4,6 @@ import (
 	"fmt"
 )
 
-
 // Machine is an immutable deterministic finite state machine.
 // States and symbols are generic and must be comparable (hashable) to be used as map keys.
 type Machine[S comparable, Sym comparable] struct {
@@ -90,6 +89,13 @@ func (b *Builder[S, Sym]) Build() (*Machine[S, Sym], error) {
 	}
 	if len(b.symbols) == 0 {
 		verr.Append(newBuildError("at least one input symbol is required"))
+	}
+
+	// Ensure F ⊆ Q: every accepting state must be a registered state
+	for s := range b.accepting {
+		if _, ok := b.states[s]; !ok {
+			verr.Append(newBuildError("accepting state unknown %v", s))
+		}
 	}
 
 	// Ensure all transitions reference known states/symbols and optionally determinism.
