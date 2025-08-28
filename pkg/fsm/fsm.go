@@ -231,6 +231,54 @@ func (m *Machine[S, Sym]) Eval(input []Sym) (S, error) {
 	return r.State(), nil
 }
 
+// Convenience method for checking if final state after evaluation is accepting
+func (m *Machine[S, Sym]) EvalAccepting(input []Sym) (bool, error) {
+	finalState, err := m.Eval(input)
+	if err != nil {
+		return false, err
+	}
+	return m.Accepting(finalState), nil
+}
+
+// CURSOR: Get all states in the machine
+func (m *Machine[S, Sym]) States() []S {
+	states := make([]S, 0, len(m.accepting)+1)
+	seen := make(map[S]struct{})
+	
+	// Add initial state first
+	states = append(states, m.initialState)
+	seen[m.initialState] = struct{}{}
+	
+	// Add accepting states
+	for state := range m.accepting {
+		if _, exists := seen[state]; !exists {
+			states = append(states, state)
+			seen[state] = struct{}{}
+		}
+	}
+	
+	// Add any other states from transitions
+	for from := range m.transitions {
+		if _, exists := seen[from]; !exists {
+			states = append(states, from)
+			seen[from] = struct{}{}
+		}
+		for _, to := range m.transitions[from] {
+			if _, exists := seen[to]; !exists {
+				states = append(states, to)
+				seen[to] = struct{}{}
+			}
+		}
+	}
+	
+	return states
+}
+
+// Get the initial state
+func (m *Machine[S, Sym]) InitialState() S {
+	return m.initialState
+}
+
 // Runner is a mutable execution context for a Machine.
 type Runner[S comparable, Sym comparable] struct {
 	machine *Machine[S, Sym]

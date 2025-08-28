@@ -2,8 +2,16 @@ package mod3
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/bohdan-natsevych/fsm-generator/pkg/fsm"
+)
+
+var (
+	// Singleton pattern for better performance - avoid rebuilding FSM on each call
+	machine     *fsm.Machine[string, byte]
+	machineOnce sync.Once
+	machineErr  error
 )
 
 // Build constructs a modulo-3 FSM for binary input symbols '0' and '1'.
@@ -36,18 +44,41 @@ func Build() (*fsm.Machine[string, byte], error) {
 	return b.Build()
 }
 
+// getMachine returns the singleton modulo-3 FSM instance, building it once.
+func getMachine() (*fsm.Machine[string, byte], error) {
+	machineOnce.Do(func() {
+		machine, machineErr = Build()
+	})
+	return machine, machineErr
+}
+
 // ModThree returns the remainder in {0,1,2} for a binary string input.
+// The function validates that input contains only binary digits.
 func ModThree(binary string) (int, error) {
-	m, err := Build()
+	// Input validation for better error messages
+	if binary == "" {
+		return 0, nil // Empty string represents 0, so remainder is 0
+	}
+	
+	// Validate binary input
+	for i, char := range binary {
+		if char != '0' && char != '1' {
+			return 0, fmt.Errorf("invalid binary character '%c' at position %d", char, i)
+		}
+	}
+	
+	m, err := getMachine()
 	if err != nil {
 		return 0, err
 	}
+	
 	// Evaluate
 	bs := []byte(binary)
 	state, err := m.Eval(bs)
 	if err != nil {
 		return 0, err
 	}
+	
 	switch state {
 	case "S0":
 		return 0, nil
