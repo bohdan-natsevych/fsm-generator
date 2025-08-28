@@ -8,8 +8,8 @@ import (
 
 // Build constructs a modulo-3 FSM for binary input symbols '0' and '1'.
 // States represent the current remainder: S0=0, S1=1, S2=2.
-func Build() (*fsm.Machine[string, rune], error) {
-	b := fsm.NewBuilder[string, rune](
+func Build() (*fsm.Machine[string, byte], error) {
+	b := fsm.NewBuilder[string, byte](
 		fsm.WithPreventOverwriteTransitions(),
 		fsm.WithErrorOnUnreachableStates(),
 		fsm.WithErrorWhenNoAcceptingReachable(),
@@ -42,9 +42,9 @@ func ModThree(binary string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Evaluate MSB->LSB as provided; Go string iteration yields runes in order
-	runes := []rune(binary)
-	state, err := m.Eval(runes)
+	// Evaluate
+	bs := []byte(binary)
+	state, err := m.Eval(bs)
 	if err != nil {
 		return 0, err
 	}

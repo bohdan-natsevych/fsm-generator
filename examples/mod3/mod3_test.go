@@ -28,7 +28,7 @@ func TestBuildMachineSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected build error: %v", err)
 	}
-	if _, err := m.Eval([]rune("01")); err != nil {
+	if _, err := m.Eval([]byte("01")); err != nil {
 		t.Fatalf("unexpected eval error: %v", err)
 	}
 }
@@ -48,6 +48,24 @@ func TestModThreeEmptyAndSingleBit(t *testing.T) {
     if got, err := ModThree("0"); err != nil || got != 0 {
         t.Fatalf("0 => want 0, got %d, err %v", got, err)
     }
+}
+
+func TestModThreeRejectsNonBinaryASCII(t *testing.T) {
+	cases := []string{"2", "102", "a1", "1x0"}
+	for _, in := range cases {
+		if _, err := ModThree(in); err == nil {
+			t.Fatalf("expected error for non-binary input %q, got nil", in)
+		}
+	}
+}
+
+func TestModThreeRejectsNonASCII(t *testing.T) {
+	cases := []string{"🙂", "1🙂0", "٠١"} // note: Arabic-Indic digits
+	for _, in := range cases {
+		if _, err := ModThree(in); err == nil {
+			t.Fatalf("expected error for non-ASCII/non-binary input %q, got nil", in)
+		}
+	}
 }
 
 

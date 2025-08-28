@@ -2,6 +2,7 @@ package fsm
 
 import (
 	"fmt"
+	"strings"
 )
 
 type BuildError struct {
@@ -25,11 +26,13 @@ func (ve *ValidationErrors) Error() string {
 	if len(ve.errors) == 1 {
 		return ve.errors[0].Error()
 	}
-	msg := "validation errors:"
+	var sb strings.Builder
+	sb.WriteString("validation errors:")
 	for _, err := range ve.errors {
-		msg += "\n - " + err.Error()
+		sb.WriteString("\n - ")
+		sb.WriteString(err.Error())
 	}
-	return msg
+	return sb.String()
 }
 
 func (ve *ValidationErrors) Append(err error) {

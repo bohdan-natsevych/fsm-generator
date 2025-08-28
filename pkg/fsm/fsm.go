@@ -68,7 +68,7 @@ func (b *Builder[S, Sym]) On(from S, sym Sym, to S) *Builder[S, Sym] {
 	b.symbols[sym] = struct{}{}
 	row := b.transitions[from]
 	if row == nil {
-		row = make(map[Sym]S)
+		row = make(map[Sym]S, len(b.symbols))
 		b.transitions[from] = row
 	}
 	if _, exists := row[sym]; exists && b.options.preventOverwriteTransitions {
@@ -76,6 +76,69 @@ func (b *Builder[S, Sym]) On(from S, sym Sym, to S) *Builder[S, Sym] {
 	}
 	row[sym] = to
 	return b
+}
+
+// CURSOR: Optional checks are extracted to helpers to keep Build concise.
+func (b *Builder[S, Sym]) checkRequireTotalTransitions(verr *ValidationErrors) {
+    if !b.options.requireTotalTransitions {
+        return
+    }
+    for s := range b.states {
+        row := b.transitions[s]
+        for sym := range b.symbols {
+            if row == nil {
+                verr.Append(newBuildError("missing transitions for state %v", s))
+                break
+            }
+            if _, ok := row[sym]; !ok {
+                verr.Append(newBuildError("missing transition from %v on %v", s, sym))
+            }
+        }
+    }
+}
+
+func (b *Builder[S, Sym]) checkRequireAtLeastOneAccepting(verr *ValidationErrors) {
+    if b.options.requireAtLeastOneAccepting && len(b.accepting) == 0 {
+        verr.Append(newBuildError("at least one accepting state required"))
+    }
+}
+
+func (b *Builder[S, Sym]) checkReachability(verr *ValidationErrors) {
+    if !b.initialSet || !(b.options.errorOnUnreachableStates || b.options.errorWhenNoAcceptingReachable) {
+        return
+    }
+    reached := make(map[S]struct{})
+    queue := []S{b.initialState}
+    reached[b.initialState] = struct{}{}
+    // CURSOR: Use index-based queue to avoid retaining backing array when slicing
+    for i := 0; i < len(queue); i++ {
+        cur := queue[i]
+        for _, to := range b.transitions[cur] {
+            if _, ok := reached[to]; !ok {
+                reached[to] = struct{}{}
+                queue = append(queue, to)
+            }
+        }
+    }
+    if b.options.errorOnUnreachableStates {
+        for s := range b.states {
+            if _, ok := reached[s]; !ok {
+                verr.Append(newBuildError("unreachable state %v", s))
+            }
+        }
+    }
+    if b.options.errorWhenNoAcceptingReachable {
+        any := false
+        for s := range b.accepting {
+            if _, ok := reached[s]; ok {
+                any = true
+                break
+            }
+        }
+        if !any {
+            verr.Append(newBuildError("no accepting state reachable from initial"))
+        }
+    }
 }
 
 // Build validates and returns an immutable Machine.
@@ -113,64 +176,10 @@ func (b *Builder[S, Sym]) Build() (*Machine[S, Sym], error) {
 		}
 	}
 
-	// Optional: require total transitions (every state has a transition for every symbol)
-	if b.options.requireTotalTransitions {
-		for s := range b.states {
-			row := b.transitions[s]
-			for sym := range b.symbols {
-				if row == nil {
-					verr.Append(newBuildError("missing transitions for state %v", s))
-					break
-				}
-				if _, ok := row[sym]; !ok {
-					verr.Append(newBuildError("missing transition from %v on %v", s, sym))
-				}
-			}
-		}
-	}
-
-	// Optional: at least one accepting state
-	if b.options.requireAtLeastOneAccepting && len(b.accepting) == 0 {
-		verr.Append(newBuildError("at least one accepting state required"))
-	}
-
-	// Graph reachability checks from q0
-	if b.initialSet && (b.options.errorOnUnreachableStates || b.options.errorWhenNoAcceptingReachable) {
-		reached := make(map[S]struct{})
-		queue := []S{b.initialState}
-		reached[b.initialState] = struct{}{}
-		for len(queue) > 0 {
-			cur := queue[0]
-			queue = queue[1:]
-			for _, to := range b.transitions[cur] {
-				if _, ok := reached[to]; !ok {
-					reached[to] = struct{}{}
-					queue = append(queue, to)
-				}
-			}
-		}
-
-		if b.options.errorOnUnreachableStates {
-			for s := range b.states {
-				if _, ok := reached[s]; !ok {
-					verr.Append(newBuildError("unreachable state %v", s))
-				}
-			}
-		}
-
-		if b.options.errorWhenNoAcceptingReachable {
-			any := false
-			for s := range b.accepting {
-				if _, ok := reached[s]; ok {
-					any = true
-					break
-				}
-			}
-			if !any {
-				verr.Append(newBuildError("no accepting state reachable from initial"))
-			}
-		}
-	}
+	// Optional checks controlled by flags
+	b.checkRequireTotalTransitions(verr)
+	b.checkRequireAtLeastOneAccepting(verr)
+	b.checkReachability(verr)
 
 	if err := verr.AsError(); err != nil {
 		return nil, err
