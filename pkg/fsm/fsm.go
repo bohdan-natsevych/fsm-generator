@@ -113,6 +113,65 @@ func (b *Builder[S, Sym]) Build() (*Machine[S, Sym], error) {
 		}
 	}
 
+	// Optional: require total transitions (every state has a transition for every symbol)
+	if b.options.requireTotalTransitions {
+		for s := range b.states {
+			row := b.transitions[s]
+			for sym := range b.symbols {
+				if row == nil {
+					verr.Append(newBuildError("missing transitions for state %v", s))
+					break
+				}
+				if _, ok := row[sym]; !ok {
+					verr.Append(newBuildError("missing transition from %v on %v", s, sym))
+				}
+			}
+		}
+	}
+
+	// Optional: at least one accepting state
+	if b.options.requireAtLeastOneAccepting && len(b.accepting) == 0 {
+		verr.Append(newBuildError("at least one accepting state required"))
+	}
+
+	// Graph reachability checks from q0
+	if b.initialSet && (b.options.errorOnUnreachableStates || b.options.errorWhenNoAcceptingReachable) {
+		reached := make(map[S]struct{})
+		queue := []S{b.initialState}
+		reached[b.initialState] = struct{}{}
+		for len(queue) > 0 {
+			cur := queue[0]
+			queue = queue[1:]
+			for _, to := range b.transitions[cur] {
+				if _, ok := reached[to]; !ok {
+					reached[to] = struct{}{}
+					queue = append(queue, to)
+				}
+			}
+		}
+
+		if b.options.errorOnUnreachableStates {
+			for s := range b.states {
+				if _, ok := reached[s]; !ok {
+					verr.Append(newBuildError("unreachable state %v", s))
+				}
+			}
+		}
+
+		if b.options.errorWhenNoAcceptingReachable {
+			any := false
+			for s := range b.accepting {
+				if _, ok := reached[s]; ok {
+					any = true
+					break
+				}
+			}
+			if !any {
+				verr.Append(newBuildError("no accepting state reachable from initial"))
+			}
+		}
+	}
+
 	if err := verr.AsError(); err != nil {
 		return nil, err
 	}

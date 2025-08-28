@@ -11,6 +11,8 @@ import (
 func Build() (*fsm.Machine[string, rune], error) {
 	b := fsm.NewBuilder[string, rune](
 		fsm.WithPreventOverwriteTransitions(),
+		fsm.WithErrorOnUnreachableStates(),
+		fsm.WithErrorWhenNoAcceptingReachable(),
 	)
 
 	// States and accepting set (all states are accepting for modulo remainder output)

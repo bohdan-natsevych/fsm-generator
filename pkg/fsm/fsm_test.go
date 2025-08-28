@@ -30,12 +30,7 @@ func TestTransitionErrorWhenMissing(t *testing.T) {
 
 func TestAcceptingMustBeSubsetOfStates(t *testing.T) {
     b := NewBuilder[string, rune]()
-    // Mark accepting implicitly by AddState with true, but then remove from states map to simulate misuse.
-    // Not possible via API, so we simulate by using AddState(false) and then toggling accepting via transition side-effects.
-    // Instead, we can rely on Build to fail only if accepting contains unknown; we populate accepting by calling AddState on a temp builder.
 
-    // Approach: create builder without adding state to Q, but hack by referencing accepting directly is not possible.
-    // Create a minimal case that still exercises the validation: add accepting via AddState, then delete from states to simulate corruption.
     b.AddState("Known", true)
     b.SetInitial("Known")
     b.AddSymbol('x')
@@ -134,6 +129,51 @@ func TestInitialImplicitRegistration(t *testing.T) {
     }
     if m.Accepting("I") { // never marked accepting
         t.Fatalf("initial should not be accepting unless specified")
+    }
+}
+
+func TestRequireTotalTransitions(t *testing.T) {
+    b := NewBuilder[string, rune](WithRequireTotalTransitions())
+    b.SetInitial("S0")
+    b.AddState("S0", true).AddState("S1", false)
+    b.AddSymbol('0').AddSymbol('1')
+    b.On("S0", '0', "S1") // missing S0 on '1' and entire row for S1
+    if _, err := b.Build(); err == nil {
+        t.Fatalf("expected error due to missing total transitions")
+    }
+}
+
+func TestRequireAtLeastOneAccepting(t *testing.T) {
+    b := NewBuilder[string, rune](WithRequireAtLeastOneAccepting())
+    b.SetInitial("S0")
+    b.AddState("S0", false)
+    b.AddSymbol('x')
+    if _, err := b.Build(); err == nil {
+        t.Fatalf("expected error requiring at least one accepting state")
+    }
+}
+
+func TestErrorOnUnreachableStates(t *testing.T) {
+    b := NewBuilder[string, rune](WithErrorOnUnreachableStates())
+    b.SetInitial("A")
+    b.AddState("A", true).AddState("B", false)
+    b.AddSymbol('x')
+    // No transitions to B, so B is unreachable
+    b.On("A", 'x', "A")
+    if _, err := b.Build(); err == nil {
+        t.Fatalf("expected error for unreachable state B")
+    }
+}
+
+func TestErrorWhenNoAcceptingReachable(t *testing.T) {
+    b := NewBuilder[string, rune](WithErrorWhenNoAcceptingReachable())
+    b.SetInitial("A")
+    b.AddState("A", false).AddState("B", true)
+    b.AddSymbol('x')
+    // Transitions form a self-loop on A; B is accepting but unreachable
+    b.On("A", 'x', "A")
+    if _, err := b.Build(); err == nil {
+        t.Fatalf("expected error when no accepting state is reachable")
     }
 }
 
