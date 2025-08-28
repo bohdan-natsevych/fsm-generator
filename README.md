@@ -31,7 +31,6 @@ The library implements a generic deterministic FSM with a fluent builder.
 
 ```go
 b := fsm.NewBuilder[string, rune](
-	fsm.WithDeterministic(),
 	fsm.WithPreventOverwriteTransitions(),
 )
 

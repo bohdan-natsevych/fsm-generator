@@ -98,25 +98,17 @@ func (b *Builder[S, Sym]) Build() (*Machine[S, Sym], error) {
 		}
 	}
 
-	// Ensure all transitions reference known states/symbols and optionally determinism.
+	// Ensure all transitions reference known states/symbols.
 	for from, row := range b.transitions {
 		if _, ok := b.states[from]; !ok {
 			verr.Append(newBuildError("transition from unknown state %v", from))
 		}
-		seen := make(map[Sym]struct{})
 		for sym, to := range row {
 			if _, ok := b.symbols[sym]; !ok {
 				verr.Append(newBuildError("transition uses unknown symbol %v", sym))
 			}
 			if _, ok := b.states[to]; !ok {
 				verr.Append(newBuildError("transition to unknown state %v", to))
-			}
-			if b.options.enforceDeterministic {
-				if _, dup := seen[sym]; dup {
-					verr.Append(newBuildError("multiple transitions from %v on %v", from, sym))
-				} else {
-					seen[sym] = struct{}{}
-				}
 			}
 		}
 	}

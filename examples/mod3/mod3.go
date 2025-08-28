@@ -10,7 +10,6 @@ import (
 // States represent the current remainder: S0=0, S1=1, S2=2.
 func Build() (*fsm.Machine[string, rune], error) {
 	b := fsm.NewBuilder[string, rune](
-		fsm.WithDeterministic(),
 		fsm.WithPreventOverwriteTransitions(),
 	)
 

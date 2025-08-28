@@ -108,6 +108,88 @@ func TestRunnerStepSequence(t *testing.T) {
 	}
 }
 
+func TestAddStateIdempotentAndAccepting(t *testing.T) {
+    b := NewBuilder[string, rune]()
+    b.AddState("S", false)
+    b.AddState("S", true)  // becomes accepting
+    b.AddState("S", false) // should not unset accepting
+    b.SetInitial("S")
+    b.AddSymbol('x')
+    m, err := b.Build()
+    if err != nil {
+        t.Fatalf("unexpected build error: %v", err)
+    }
+    if !m.Accepting("S") {
+        t.Fatalf("expected S to be accepting after toggling")
+    }
+}
+
+func TestInitialImplicitRegistration(t *testing.T) {
+    b := NewBuilder[string, rune]()
+    b.SetInitial("I") // not added via AddState
+    b.AddSymbol('x')
+    m, err := b.Build()
+    if err != nil {
+        t.Fatalf("unexpected build error: %v", err)
+    }
+    if m.Accepting("I") { // never marked accepting
+        t.Fatalf("initial should not be accepting unless specified")
+    }
+}
+
+func TestOnImplicitlyRegisters(t *testing.T) {
+    b := NewBuilder[string, rune]()
+    b.SetInitial("A")
+    b.On("A", 'x', "B") // registers B and 'x'
+    m, err := b.Build()
+    if err != nil {
+        t.Fatalf("unexpected build error: %v", err)
+    }
+    r := m.Start()
+    if err := r.Step('x'); err != nil {
+        t.Fatalf("unexpected step error: %v", err)
+    }
+}
+
+func TestEvalEmptyReturnsInitial(t *testing.T) {
+    b := NewBuilder[string, rune]()
+    b.SetInitial("I")
+    b.AddSymbol('x')
+    m, err := b.Build()
+    if err != nil {
+        t.Fatalf("unexpected build error: %v", err)
+    }
+    s, err := m.Eval(nil)
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    if s != "I" {
+        t.Fatalf("expected initial state 'I', got %v", s)
+    }
+}
+
+func TestTransitionErrorMessageContainsDetails(t *testing.T) {
+    b := NewBuilder[string, rune]()
+    b.SetInitial("A")
+    b.AddState("A", true)
+    b.AddSymbol('y')
+    m, err := b.Build()
+    if err != nil {
+        t.Fatalf("unexpected build error: %v", err)
+    }
+    _, err = m.Eval([]rune{'x'})
+    if err == nil {
+        t.Fatalf("expected error")
+    }
+    msg := err.Error()
+    if msg == "" || msg == "<nil>" {
+        t.Fatalf("expected non-empty error message")
+    }
+    if msg == "no validation errors" { // sanity check not mixing error types
+        t.Fatalf("unexpected validation error string")
+    }
+}
+
 func TestStartReturnsInitialAndAccepting(t *testing.T) {
 	b := NewBuilder[string, rune]()
 	b.AddState("Init", true).AddState("Other", false)
@@ -163,18 +245,41 @@ func TestValidationErrorsFormatting(t *testing.T) {
 	}
 }
 
-func TestJoinErrors(t *testing.T) {
-	if err := joinErrors(nil); err != nil {
-		t.Fatalf("joinErrors(nil) expected nil, got %v", err)
-	}
-	if err := joinErrors([]error{}); err != nil {
-		t.Fatalf("joinErrors(empty) expected nil, got %v", err)
-	}
-	a := newBuildError("a")
-	b := newBuildError("b")
-	if err := joinErrors([]error{a, b}); err == nil {
-		t.Fatalf("joinErrors should join errors")
-	}
+//
+
+func TestValidationAsErrorAndIsEmpty(t *testing.T) {
+    ve := &ValidationErrors{}
+    if !ve.IsEmpty() {
+        t.Fatalf("expected empty at start")
+    }
+    if ve.AsError() != nil {
+        t.Fatalf("expected nil error for empty ValidationErrors")
+    }
+    ve.Append(newBuildError("x"))
+    if ve.IsEmpty() {
+        t.Fatalf("expected non-empty after append")
+    }
+    if ve.AsError() == nil {
+        t.Fatalf("expected non-nil error after append")
+    }
+}
+
+func TestEvalReturnsZeroOnError(t *testing.T) {
+    b := NewBuilder[string, rune]()
+    b.AddState("A", true)
+    b.SetInitial("A")
+    b.AddSymbol('y')
+    m, err := b.Build()
+    if err != nil {
+        t.Fatalf("unexpected build error: %v", err)
+    }
+    s, err := m.Eval([]rune{'x'}) // 'x' not in alphabet
+    if err == nil {
+        t.Fatalf("expected error from Eval on unknown symbol")
+    }
+    if s != "" { // zero value for string state type
+        t.Fatalf("expected zero value state on error, got %q", s)
+    }
 }
 
 func TestStepRowExistsButSymbolMissing(t *testing.T) {

@@ -39,4 +39,15 @@ func TestModThreeUnexpectedStateIsError(t *testing.T) {
     }
 }
 
+func TestModThreeEmptyAndSingleBit(t *testing.T) {
+    // empty input: no steps, should remain in S0 => 0
+    if got, err := ModThree(""); err != nil || got != 0 {
+        t.Fatalf("empty => want 0, got %d, err %v", got, err)
+    }
+    // single bit inputs already covered; add another sanity
+    if got, err := ModThree("0"); err != nil || got != 0 {
+        t.Fatalf("0 => want 0, got %d, err %v", got, err)
+    }
+}
+
 

@@ -1,7 +1,6 @@
 package fsm
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -58,11 +57,6 @@ func (e *TransitionError) Error() string {
 	return fmt.Sprintf("no transition from %v on %v", e.From, e.Symbol)
 }
 
-func joinErrors(errs []error) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	return errors.Join(errs...)
-}
+//
 
 
