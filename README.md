@@ -9,22 +9,6 @@ This project provides a small, generic finite state machine (FSM) library in Go,
 ### Requirements
 - Go 1.22+
 
-### Install and Build
-
-```bash
-# From repo root
-go mod tidy
-
-# Build CLI
-go build -o bin/mod3 ./cmd/mod3
-
-# Run with flag
-./bin/mod3 -in 1111   # => 0
-
-# Or via stdin
-echo 1101 | ./bin/mod3   # => 1
-```
-
 ### Library Overview
 
 The library implements a generic deterministic FSM with a fluent builder.
@@ -72,5 +56,21 @@ rem, err := mod3.ModThree("1111") // => 0
 
 ```bash
 go test ./...
+```
+
+### CLI build and usage
+
+```bash
+# From repo root
+go mod tidy
+
+# Build CLI
+go build -o bin/mod3 ./cmd/mod3
+
+# Run with flag
+./bin/mod3 -in 1111   # => 0
+
+# Or via stdin
+echo 1101 | ./bin/mod3   # => 1
 ```
 
