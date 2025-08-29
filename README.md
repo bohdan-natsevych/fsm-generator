@@ -7,7 +7,7 @@ This project provides a small, generic finite state machine (FSM) library in Go,
 - CLI: `cmd/mod3`
 
 ### Requirements
-- Go 1.21+
+- Go 1.22+
 
 ### Install and Build
 
@@ -30,7 +30,7 @@ echo 1101 | ./bin/mod3   # => 1
 The library implements a generic deterministic FSM with a fluent builder.
 
 ```go
-b := fsm.NewBuilder[string, rune](
+b := fsm.NewBuilder[string, byte](
 	fsm.WithPreventOverwriteTransitions(),
 )
 
@@ -46,7 +46,7 @@ m, err := b.Build()
 
 Evaluate input:
 ```go
-state, err := m.Eval([]rune("1110")) // => final state "S2"
+state, err := m.Eval([]byte("1110")) // => final state "S2"
 ```
 
 Use the `Runner` to step manually:
@@ -65,20 +65,12 @@ _ = r.State() // "S2"
 rem, err := mod3.ModThree("1111") // => 0
 ```
 
-### Assumptions and Notes
-- Input is processed MSB first (left to right), matching the exercise.
-- The modulo-three machine marks all states as accepting because the output is the remainder; callers map the final state to {0,1,2}.
-- The builder enforces determinism and protects against accidental transition overwrites.
+### Notes
+- Input is processed MSB first (left to right)
 
 ### Testing
 
 ```bash
 go test ./...
 ```
-
-Tests cover:
-- Builder validation and determinism
-- Transition execution and error cases
-- Mod-3 example behavior on known inputs
-
 
