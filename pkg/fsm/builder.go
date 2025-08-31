@@ -11,7 +11,7 @@ type Builder[S comparable, Sym comparable] struct {
 	initialSet   bool
 	initialState S
 	accepting    map[S]struct{}
-	transitions  map[S]map[Sym]S
+	transitions  map[TransitionKey[S, Sym]]S
 	options      buildOptions
 }
 
@@ -21,7 +21,7 @@ func NewBuilder[S comparable, Sym comparable](opts ...Option) *Builder[S, Sym] {
 		states:      make(map[S]struct{}),
 		symbols:     make(map[Sym]struct{}),
 		accepting:   make(map[S]struct{}),
-		transitions: make(map[S]map[Sym]S),
+		transitions: make(map[TransitionKey[S, Sym]]S),
 	}
 	for _, o := range opts {
 		o(&b.options)
@@ -57,15 +57,12 @@ func (b *Builder[S, Sym]) On(from S, sym Sym, to S) *Builder[S, Sym] {
 	b.states[from] = struct{}{}
 	b.states[to] = struct{}{}
 	b.symbols[sym] = struct{}{}
-	row := b.transitions[from]
-	if row == nil {
-		row = make(map[Sym]S, len(b.symbols))
-		b.transitions[from] = row
-	}
-	if _, exists := row[sym]; exists && b.options.preventOverwriteTransitions {
+	
+	key := TransitionKey[S, Sym]{From: from, Symbol: sym}
+	if _, exists := b.transitions[key]; exists && b.options.preventOverwriteTransitions {
 		panic(fmt.Sprintf("transition already defined for (%v,%v)", from, sym))
 	}
-	row[sym] = to
+	b.transitions[key] = to
 	return b
 }
 
@@ -75,13 +72,9 @@ func (b *Builder[S, Sym]) checkRequireTotalTransitions(verr *ValidationErrors) {
 		return
 	}
 	for s := range b.states {
-		row := b.transitions[s]
 		for sym := range b.symbols {
-			if row == nil {
-				verr.Append(newBuildError("missing transitions for state %v", s))
-				break
-			}
-			if _, ok := row[sym]; !ok {
+			key := TransitionKey[S, Sym]{From: s, Symbol: sym}
+			if _, ok := b.transitions[key]; !ok {
 				verr.Append(newBuildError("missing transition from %v on %v", s, sym))
 			}
 		}
@@ -104,10 +97,12 @@ func (b *Builder[S, Sym]) checkReachability(verr *ValidationErrors) {
 
 	for i := 0; i < len(queue); i++ {
 		cur := queue[i]
-		for _, to := range b.transitions[cur] {
-			if _, ok := reached[to]; !ok {
-				reached[to] = struct{}{}
-				queue = append(queue, to)
+		for key, to := range b.transitions {
+			if key.From == cur {
+				if _, ok := reached[to]; !ok {
+					reached[to] = struct{}{}
+					queue = append(queue, to)
+				}
 			}
 		}
 	}
@@ -153,17 +148,15 @@ func (b *Builder[S, Sym]) Build() (*Machine[S, Sym], error) {
 	}
 
 	// Ensure all transitions reference known states/symbols.
-	for from, row := range b.transitions {
-		if _, ok := b.states[from]; !ok {
-			verr.Append(newBuildError("transition from unknown state %v", from))
+	for key, to := range b.transitions {
+		if _, ok := b.states[key.From]; !ok {
+			verr.Append(newBuildError("transition from unknown state %v", key.From))
 		}
-		for sym, to := range row {
-			if _, ok := b.symbols[sym]; !ok {
-				verr.Append(newBuildError("transition uses unknown symbol %v", sym))
-			}
-			if _, ok := b.states[to]; !ok {
-				verr.Append(newBuildError("transition to unknown state %v", to))
-			}
+		if _, ok := b.symbols[key.Symbol]; !ok {
+			verr.Append(newBuildError("transition uses unknown symbol %v", key.Symbol))
+		}
+		if _, ok := b.states[to]; !ok {
+			verr.Append(newBuildError("transition to unknown state %v", to))
 		}
 	}
 
@@ -181,13 +174,9 @@ func (b *Builder[S, Sym]) Build() (*Machine[S, Sym], error) {
 	for s := range b.accepting {
 		acc[s] = struct{}{}
 	}
-	trans := make(map[S]map[Sym]S, len(b.transitions))
-	for from, row := range b.transitions {
-		rowCopy := make(map[Sym]S, len(row))
-		for sym, to := range row {
-			rowCopy[sym] = to
-		}
-		trans[from] = rowCopy
+	trans := make(map[TransitionKey[S, Sym]]S, len(b.transitions))
+	for key, to := range b.transitions {
+		trans[key] = to
 	}
 	return &Machine[S, Sym]{
 		initialState: b.initialState,

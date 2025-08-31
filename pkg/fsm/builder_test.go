@@ -136,10 +136,8 @@ func TestBuildTransitionFromUnknownState(t *testing.T) {
 	b.SetInitial("A")
 	b.AddSymbol('x')
 	// Inject transition from unknown state "X"
-	if b.transitions["X"] == nil {
-		b.transitions["X"] = make(map[rune]string)
-	}
-	b.transitions["X"]['x'] = "A"
+	key := TransitionKey[string, rune]{From: "X", Symbol: 'x'}
+	b.transitions[key] = "A"
 	if _, err := b.Build(); err == nil {
 		t.Fatalf("expected error for transition from unknown state")
 	}
@@ -151,10 +149,8 @@ func TestBuildTransitionUsesUnknownSymbol(t *testing.T) {
 	b.SetInitial("A")
 	b.AddSymbol('x')
 	// Inject transition on unknown symbol 'z'
-	if b.transitions["A"] == nil {
-		b.transitions["A"] = make(map[rune]string)
-	}
-	b.transitions["A"]['z'] = "A"
+	key := TransitionKey[string, rune]{From: "A", Symbol: 'z'}
+	b.transitions[key] = "A"
 	if _, err := b.Build(); err == nil {
 		t.Fatalf("expected error for transition with unknown symbol")
 	}
@@ -166,10 +162,8 @@ func TestBuildTransitionToUnknownState(t *testing.T) {
 	b.SetInitial("A")
 	b.AddSymbol('x')
 	// Inject transition to unknown state "Z"
-	if b.transitions["A"] == nil {
-		b.transitions["A"] = make(map[rune]string)
-	}
-	b.transitions["A"]['x'] = "Z"
+	key := TransitionKey[string, rune]{From: "A", Symbol: 'x'}
+	b.transitions[key] = "Z"
 	if _, err := b.Build(); err == nil {
 		t.Fatalf("expected error for transition to unknown state")
 	}

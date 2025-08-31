@@ -11,11 +11,8 @@ func (r *Runner[S, Sym]) State() S { return r.state }
 
 // Step advances the machine using the provided input symbol.
 func (r *Runner[S, Sym]) Step(sym Sym) error {
-	row := r.machine.transitions[r.state]
-	if row == nil {
-		return &TransitionError{From: r.state, Symbol: sym}
-	}
-	next, ok := row[sym]
+	// CURSOR: Single map lookup with composite key
+	next, ok := r.machine.transitions[TransitionKey[S, Sym]{From: r.state, Symbol: sym}]
 	if !ok {
 		return &TransitionError{From: r.state, Symbol: sym}
 	}
