@@ -211,4 +211,33 @@ func TestStartReturnsInitialAndAccepting(t *testing.T) {
     }
 }
 
+func TestReachabilityWithAcceptingStatesReachable(t *testing.T) {
+    // CURSOR: Test case where accepting states are reachable - should pass
+    b := NewBuilder[string, rune](WithErrorWhenNoAcceptingReachable())
+    b.SetInitial("A")
+    b.AddState("A", false).AddState("B", true)
+    b.AddSymbol('x')
+    b.On("A", 'x', "B") // B is accepting and reachable
+    _, err := b.Build()
+    if err != nil {
+        t.Fatalf("expected successful build when accepting state is reachable, got: %v", err)
+    }
+}
+
+func TestReachabilityComplexGraph(t *testing.T) {
+    // CURSOR: Test complex reachability with multiple paths
+    b := NewBuilder[string, rune](WithErrorOnUnreachableStates(), WithErrorWhenNoAcceptingReachable())
+    b.SetInitial("A")
+    b.AddState("A", false).AddState("B", false).AddState("C", true).AddState("D", false)
+    b.AddSymbol('x').AddSymbol('y')
+    b.On("A", 'x', "B")
+    b.On("B", 'x', "C") // C is accepting and reachable
+    b.On("B", 'y', "D") // D is also reachable
+    b.On("C", 'x', "A") // Loop back
+    _, err := b.Build()
+    if err != nil {
+        t.Fatalf("expected successful build with all states reachable and accepting state reachable, got: %v", err)
+    }
+}
+
 

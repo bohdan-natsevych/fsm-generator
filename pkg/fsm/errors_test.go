@@ -72,4 +72,12 @@ func TestValidationAsErrorAndIsEmpty(t *testing.T) {
 	}
 }
 
+func TestValidationAppendNilError(t *testing.T) {
+	ve := &ValidationErrors{}
+	ve.Append(nil) // Should be handled gracefully
+	if !ve.IsEmpty() {
+		t.Fatalf("expected ValidationErrors to remain empty after appending nil")
+	}
+}
+
 
